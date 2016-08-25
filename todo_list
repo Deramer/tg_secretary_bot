@@ -1,0 +1,8 @@
+create tables if they don't exist;
+debug 'broadcast' feature;
+check the code on windows (after tables);
+write fairly fat readme !important;
+show messages from a specific user;
+add good logging;
+do smth with printing oserror101 exceptions, they are annoying;
+do commits regularly.
