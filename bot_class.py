@@ -26,10 +26,17 @@ class Bot:
         self.curr_msg = msg
         c_type, chat_type, chat_id = telepot.glance(msg)
         if c_type != 'text':
+            print(msg)
             return
         if msg['from']['id'] == int(father_id):
             self.process_fathers_message(msg)
             #print(msg)
+            return
+        self.cur.execute('SELECT id FROM ' + blacklist_table + ' WHERE id=%s', (msg['from']['id'],))
+        fall = self.cur.fetchall()
+        print(fall)
+        if fall is not None and len(fall) > 0:
+            self.bot.sendMessage(msg['from']['id'], 'You are not allowed to send messages to that bot.')
             return
         if ((self.stop['mode'] == 'start' and msg['from']['id'] not in self.stop['exceptions'])
                 or (self.stop['mode'] == 'stop' and msg['from']['id'] in self.stop['exceptions'])):
@@ -127,6 +134,8 @@ class Bot:
             return
         if len(self.form) > 0:
             if msg['text'].lower() == 'cancel':
+                if self.form['request'] == 'dialog':
+                    self.start_request()
                 self.form = {}
                 return
             if self.form['request'] == 'send':
@@ -134,6 +143,24 @@ class Bot:
                 return
             if self.form['request'] == 'stream':
                 self.stream_request(msg)
+                return
+            if self.form['request'] == 'stop':
+                self.stop_request(msg)
+                return
+            if self.form['request'] == 'start':
+                self.start_request(msg)
+                return
+            if self.form['request'] == 'dialog':
+                self.dialog_request(msg)
+                return
+            if self.form['request'] == 'blacklist':
+                self.blacklist_request(msg, True)
+                return
+            if self.form['request'] == 'unblacklist':
+                self.blacklist_request(msg, False)
+                return
+            if self.form['request'] == 'special_send':
+                self.special_send_request(msg)
                 return
         text = msg['text'].lower()
         space = text.find(' ')
@@ -149,8 +176,16 @@ class Bot:
                 self.stop_request(msg)
             elif word == 'start':
                 self.start_request(msg)
+            elif word == 'dialog':
+                self.dialog_request(msg)
+            elif word == 'blacklist':
+                self.blacklist_request(msg, True)
+            elif word == 'unblacklist':
+                self.blacklist_request(msg, False)
             elif word == 'help':
                 self.help_request(text[space + 1:])
+            elif text.split('\n')[-1].split()[0] == 'to':
+                self.special_send_request(msg)
             else:
                 self.bot.sendMessage(father_id, 'Это сообщение - не команда для бота. Попробуй help.', reply_to_message_id=msg['message_id'])
         else:
@@ -166,6 +201,12 @@ class Bot:
                 self.start_request()
             elif text == 'status':
                 self.status_request()
+            elif text == 'dialog':
+                self.dialog_request()
+            elif text == 'blacklist':
+                self.blacklist_request(msg, True)
+            elif text == 'unblacklist':
+                self.blacklist_request(msg, False)
             else:
                 self.bot.sendMessage(father_id, 'Это сообщение - не команда для бота. Попробуй help.', reply_to_message_id=msg['message_id'])
 
@@ -235,16 +276,15 @@ class Bot:
             self.form['request'] = 'send'
             self.bot.sendMessage(father_id, 'To... ("cancel" to cancel sending)')
         elif len(self.form) == 1:
-            full_name = args[0]['text']
-            info = self.get_info_from_full_name(full_name)
-            if info is None or len(info) == 0:
-                self.bot.sendMessage(father_id, 'There is no ' + full_name + ' in the database. Try again or "cancel" to quit.')
+            name = args[0]['text']
+            if len(self.determine) == 0:
+                self.determine_info(args[0], name)
                 return
-            if len(info) == 1:
-                self.form['user_id'] = info[0][0]
-                text =  'Sending to ' + self.get_full_name_from_info(info[0]) +'\nEnter the text (or "cancel")'
-                self.bot.sendMessage(father_id, text)
-            print(info)
+            elif len(self.determine) == 1:
+                info = self.determine.pop('result')
+            self.form['user_id'] = info[0]
+            text = 'Sending to ' + self.get_full_name_from_info(info) +'\nEnter the text (or "cancel")'
+            self.bot.sendMessage(father_id, text)
         elif len(self.form) == 2:
              sent_msg = self.bot.sendMessage(self.form['user_id'], args[0]['text'])
              self.parse(sent_msg, False, self.form['user_id'])
@@ -258,16 +298,15 @@ class Bot:
             else:
                 self.bot.sendMessage(father_id, 'To... ("cancel" to cancel sending)')
         elif len(self.form) == 1:
-            full_name = args[0]['text']
-            info = self.get_info_from_full_name(full_name)
-            if info is None or len(info) == 0:
-                self.bot.sendMessage(father_id, 'There is no ' + full_name + ' in the database. Try again or "cancel" to quit.')
+            name = args[0]['text']
+            if len(self.determine) == 0:
+                self.determine_info(args[0], name)
                 return
-            if len(info) == 1:
-                self.form['user_id'] = info[0][0]
-                text =  'Streaming to ' + self.get_full_name_from_info(info[0]) +'\nEnter the text, type "cancel" to stop stream'
-                self.bot.sendMessage(father_id, text)
-            print(info)
+            elif len(self.determine) == 1:
+                info = self.determine.pop('result')
+            self.form['user_id'] = info[0]
+            text = 'Streaming to ' + self.get_full_name_from_info(info) +'\nEnter the text, type "cancel" to stop stream'
+            self.bot.sendMessage(father_id, text)
         elif len(self.form) == 2:
              sent_msg = self.bot.sendMessage(self.form['user_id'], args[0]['text'])
              self.parse(sent_msg, False, self.form['user_id'])
@@ -277,17 +316,19 @@ class Bot:
             self.stop['mode'] = 'stop'
             self.stop['exceptions'] = []
         elif len(args) == 1:
-            text = args[0]['text']
-            name = text[text.find(' ')+1:]
-            info = self.get_info_from_full_name(name)
-            if info is None or len(info) == 0:
-                self.bot.sendMessage(father_id, 'There is no ' + name + ' in the database. Try again.')
+            self.form['request'] = 'stop'
+            if len(self.determine) == 0:
+                text = args[0]['text']
+                name = text[text.find(' ')+1:]
+                self.determine_info(args[0], name)
                 return
-            if len(info) == 1:
-                if self.stop['mode'] == 'stop' and info[0][0] in self.stop['exceptions']:
-                    self.stop['exceptions'].remove(info[0][0])
-                elif self.stop['mode'] == 'start' and info[0][0] not in self.stop['exceptions']:
-                    self.stop['exceptions'].append(info[0][0])
+            elif len(self.determine) == 1:
+                info = self.determine.pop('result')
+            if self.stop['mode'] == 'stop' and info[0] in self.stop['exceptions']:
+                self.stop['exceptions'].remove(info[0])
+            elif self.stop['mode'] == 'start' and info[0] not in self.stop['exceptions']:
+                self.stop['exceptions'].append(info[0])
+            self.form = {}
 
     def start_request(self, *args):
         if len(args) == 0:
@@ -300,28 +341,30 @@ class Bot:
             self.cur.execute("UPDATE Messages SET unread='f' WHERE unread='t'")
             self.conn.commit()
         elif len(args) == 1:
-            text = args[0]['text']
-            name = text[text.find(' ')+1:]
-            info = self.get_info_from_full_name(name)
-            if info is None or len(info) == 0:
-                self.bot.sendMessage(father_id, 'There is no ' + name + ' in the database. Try again.')
+            self.form['request'] = 'start'
+            if len(self.determine) == 0:
+                text = args[0]['text']
+                name = text[text.find(' ')+1:]
+                self.determine_info(args[0], name)
                 return
-            if len(info) == 1:
-                user_id = info[0][0]
-                view_unr = False
-                if self.stop['mode'] == 'start' and user_id in self.stop['exceptions']:
-                    self.stop['exceptions'].remove(user_id)
-                    view_unr = True
-                elif self.stop['mode'] == 'stop' and user_id not in self.stop['exceptions']:
-                    self.stop['exceptions'].append(user_id)
-                    view_unr = True
-                if view_unr:
-                    self.cur.execute("SELECT msg_id, from_id, unread FROM Messages WHERE unread='t' AND from_id=%s", (user_id,))
-                unread = self.cur.fetchall()
-                for msg in unread:
-                    self.show_message(msg[messages_cols.index('msg_id')])
-                self.cur.execute("UPDATE Messages SET unread='f' WHERE unread='t' AND from_id=%s", (user_id,))
-                self.conn.commit()
+            elif len(self.determine) == 1:
+                info = self.determine.pop('result')
+            user_id = info[0]
+            view_unr = False
+            if self.stop['mode'] == 'start' and user_id in self.stop['exceptions']:
+                self.stop['exceptions'].remove(user_id)
+                view_unr = True
+            elif self.stop['mode'] == 'stop' and user_id not in self.stop['exceptions']:
+                self.stop['exceptions'].append(user_id)
+                view_unr = True
+            if view_unr:
+                self.cur.execute("SELECT msg_id, from_id, unread FROM Messages WHERE unread='t' AND from_id=%s", (user_id,))
+            unread = self.cur.fetchall()
+            for msg in unread:
+                self.show_message(msg[messages_cols.index('msg_id')])
+            self.cur.execute("UPDATE Messages SET unread='f' WHERE unread='t' AND from_id=%s", (user_id,))
+            self.conn.commit()
+            self.form = {}
 
     def status_request(self):
         status = ''
@@ -368,20 +411,99 @@ class Bot:
         help_text += 'пока всё'
         self.bot.sendMessage(father_id, help_text)
 
-    def determine_info(self, name=None, msg=None):
-        if msg == None:
-            if name == None:
-                print('Did you really call determine_info without arguments?\n')
+    def dialog_request(self, *args):
+        if len(self.form) == 0:
+            self.form['request'] = 'dialog'
+            if len(args) == 0:
+                self.bot.sendMessage(father_id, 'With... (or cancel)')
                 return
-            info = self.get_info_from_full_name(name)
+        if len(self.form) == 1:
+            if len(self.determine) == 0:
+                name = args[0]['text']
+                if name.lower().split()[0] == "dialog":
+                    name = name[name.find(' ')+1:]
+                self.determine_info(args[0], name)
+                return
+            elif len(self.determine) == 1:
+                info = self.determine.pop('result')
+            self.bot.sendMessage(father_id, 'Opening dialog with ' + self.get_full_name_from_info(info) + 
+                    '. Enter "cancel" to close it.')
+            self.stop_request()
+            fake = {'text':'start ' + self.get_full_name_from_info(info), 'message_id':0,
+                    'from':{'id':int(father_id)}, 'chat':{'id':0,'type':'private'}, 'date':0}
+            self.start_request(fake)
+            self.form['user_id'] = info[0]
+            self.form['request'] = 'dialog'
+            return
+        if len(self.form) == 2:
+            sent_msg = self.bot.sendMessage(self.form['user_id'], args[0]['text'])
+            self.parse(sent_msg, False, self.form['user_id'])
+
+    def blacklist_request(self, msg, to_blacklist=True):
+        if len(self.form) == 0:
+            self.form['request'] = 'blacklist'
+            self.form['to'] = to_blacklist
+            if len(msg['text'].split()) == 1:
+                self.bot.sendMessage(father_id, 'Whom? (or cancel)')
+                return
+        if len(self.form) == 2:
+            if len(self.determine) == 0:
+                name = msg['text']
+                if name.lower().split()[0] == "blacklist" or name.lower().split()[0] == "unblacklist":
+                    name = name[name.find(' ')+1:]
+                self.determine_info(msg, name, 'Contacts' if self.form['to'] else 'Blacklist')
+                return
+            elif len(self.determine) == 1:
+                info = self.determine.pop('result')
+            print(info, len(self.determine))
+            if self.form['to']:
+                table_from = 'Contacts'
+                table_to = 'Blacklist'
+            else:
+                table_to = 'Contacts'
+                table_from = 'Blacklist'
+            cmd = ("WITH moved_rows AS (DELETE FROM " + table_from 
+                    + " WHERE id=%s RETURNING *) INSERT INTO " + table_to + " SELECT * FROM moved_rows")
+            print(cmd)
+            self.cur.execute(cmd, (info[0],))
+            self.conn.commit()
+            self.form = {}
+
+    def special_send_request(self, msg):
+        if len(self.determine) == 0:
+            self.form['request'] = 'special_send'
+            self.form['text'] = msg['text'][:msg['text'].rfind('\n')]
+            name = msg['text'].split('\n')[-1]
+            name = name[name.find(' ')+1:]
+            self.determine_info(msg, name)
+            return
+        if len(self.determine) == 1:
+            info = self.determine.pop('result')
+            sent_msg = self.bot.sendMessage(info[0], self.form['text'])
+            self.parse(sent_msg, False, info[0])
+            self.form = {}
+
+    def determine_info(self, msg, name=None, table='Contacts'):
+        if name is not None:
+            info = self.get_info_from_full_name(name, table if 'table' not in self.determine else self.determine['table'])
             if info is None or len(info) == 0:
                 self.bot.sendMessage(father_id, 'There is no ' + name + ' in the database. Try again.')
                 self.determine['variants'] = []
                 self.determine['name'] = name
+                if 'table' not in self.determine:
+                    self.determine['table'] = table
                 self.determine['result'] = ''
                 return
             if len(info) == 1:
                 self.determine['result'] = info[0]
+                try:
+                    self.determine.pop('name')
+                    self.determine.pop('variants')
+                    self.determine.pop('table')
+                except KeyError:
+                    pass
+                print('Ready to quit!', len(self.determine))
+                self.handle(msg)
                 return
             if len(info) > 1:
                 text = "There're many " + name + " in the database. Which one do you need? (enter number)\n"
@@ -390,18 +512,20 @@ class Bot:
                 self.bot.sendMessage(father_id, text[:-1])
                 self.determine['variants'] = info
                 self.determine['name'] = name
+                if 'table' not in self.determine:
+                    self.determine['table'] = table
                 self.determine['result'] = ''
                 return
-        elif name == None:
+        else:
             if msg['text'].lower() == 'cancel' or msg['text'].lower() == '\\cancel':
                 self.determine = {}
                 self.form = {}
                 return
             if 'variants' not in self.determine:
-                print('Determine_info(msg) was called, though variants are not in dictionary. Think again.\n
-                        Oh, and if you are not me, be patient. I am just a kid.')
+                print('Determine_info(msg) was called, though variants are not in dictionary. Think again.\n'
+                        + 'Oh, and if you are not me, be patient. I am just a kid.')
             if len(self.determine['variants']) == 0:
-                self.determine_info(msg['text'])
+                self.determine_info(msg, name=msg['text'])
                 return
             else:
                 n = msg['text']
@@ -416,9 +540,11 @@ class Bot:
                 try:
                     self.determine.pop('name')
                     self.determine.pop('variants')
+                    self.determine.pop('table')
                 except KeyError:
                     print('In desperate attempt to delete keys from self.determine I got KeyError. Func determine_info\n')
-                    return
+                self.handle(msg)
+                return
 
 
     # internal transfroming functions
@@ -441,24 +567,24 @@ class Bot:
             name += ' @' + l[3]
         return name
 
-    def get_info_from_full_name(self, name):
+    def get_info_from_full_name(self, name, table='Contacts'):
         name = name.split()
         username = None
         to_del = -1
         for i, item in enumerate(name):
             if item[0] == '@':
-                username = item
+                username = item[1:]
                 to_del = i
         if to_del != -1:
             del name[to_del]
         if len(name) == 0:
-            self.cur.execute('SELECT * FROM Contacts WHERE username=%s', (args[0],))
+            self.cur.execute('SELECT * FROM ' + table + ' WHERE username=%s', (username,))
             return self.cur.fetchall()
         elif len(name) == 1:
-            self.cur.execute('SELECT * FROM Contacts WHERE first_name=%s OR last_name=%s', (name[0], name[0]))
+            self.cur.execute('SELECT * FROM ' + table + ' WHERE first_name=%s OR last_name=%s', (name[0], name[0]))
             res = self.cur.fetchall()
         elif len(name) == 2:
-            cmd = 'SELECT * FROM Contacts WHERE (first_name=%s AND last_name=%s) OR (first_name = %s AND last_name=%s)'
+            cmd = 'SELECT * FROM ' + table + ' WHERE (first_name=%s AND last_name=%s) OR (first_name = %s AND last_name=%s)'
             self.cur.execute(cmd, (name[0], name[1], name[1], name[0]))
             res = self.cur.fetchall()
         if username is not None and res is not None:
