@@ -1,0 +1,12 @@
+token = '248756472:AAHcRGmbcjkk11H2R_hKMpLLE5DMU47TOEw'
+sql_user = 'telegram_bot'
+sql_passwd = '123456'
+dbname = 'telegram'
+table_name = 'test'
+cols_names = ['id', 'user_id', 'user_name', 'message', 'date', 'to_me']
+#father_id = '123990110'
+father_id = '259114535'            # my id, actually, just for debug
+forwarded_table = 'forwarded'
+messages_table = 'messages'
+forwarded_cols = ['id', 'from_id', 'first_name', 'last_name', 'username', 'date', 'text']
+messages_cols = ['msg_id', 'from_id', 'first_name', 'last_name', 'username', 'date', 'reply_to_msg_id', 'forwarded_id', 'text', 'to_me']
