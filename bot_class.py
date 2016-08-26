@@ -27,7 +27,9 @@ class Bot:
         for key in types:
             self.types[key] = types[key]
             self.types[types[key]] = key
-        self.media_funcs = {0:self.bot.sendPhoto, 1:self.bot.sendAudio, 2:self.bot.sendDocument, 3:self.bot.sendVideo, 99:self.bot.sendMessage}
+        self.media_funcs = {0:self.bot.sendPhoto, 1:self.bot.sendAudio, 2:self.bot.sendDocument, 
+                3:self.bot.sendVideo, 99:self.bot.sendMessage}
+        self.check_tables()
 
     def run(self):
         self.bot.message_loop(self.handle, run_forever="Listening...")
@@ -38,7 +40,7 @@ class Bot:
         if msg['from']['id'] == int(father_id):
             self.process_fathers_message(msg)
             return
-        self.cur.execute('SELECT id FROM ' + blacklist_table + ' WHERE id=%s', (msg['from']['id'],))
+        self.cur.execute('SELECT id FROM ' + blacklist['table'] + ' WHERE id=%s', (msg['from']['id'],))
         fall = self.cur.fetchall()
         if fall is not None and len(fall) > 0:
             self.bot.sendMessage(msg['from']['id'], 'You are not allowed to send messages to that bot.')
@@ -53,11 +55,11 @@ class Bot:
 
     def parse(self, msg, to_me, to_id=None, unread=False, is_media=False):
         if is_media:
-           table = media_table
-           cols = media_cols
+           table = media['table']
+           cols = media['cols']
         else:
-           table = messages_table
-           cols = messages_cols
+           table = messages['table']
+           cols = messages['cols']
         cmd = ('INSERT INTO ' + table + ' (' +  reduce(lambda x,y: x+', '+y, cols)
                + ') VALUES (' + ('%s, '*len(cols))[:-2] + ');')
         args = []
@@ -110,18 +112,18 @@ class Bot:
             args.append(msg[from_str]['username'])
         else:
             args.append('')
-        cmd = "SELECT * FROM " + contacts_table + " WHERE " + reduce(lambda x,y: x+y+'=%s AND ', contacts_cols, '')[:-5] + ';'
+        cmd = "SELECT * FROM " + contacts['table'] + " WHERE " + reduce(lambda x,y: x+y+'=%s AND ', contacts['cols'], '')[:-5] + ';'
         print(msg)
         self.cur.execute(cmd, args)
         if self.cur.fetchone() is None:
             if from_str == 'from' and args[0] != int(father_id) and args[0] != int(bot_id):
                 self.confirm_acceptance(msg)
-            cmd = "INSERT INTO " + contacts_table +  ' (' +  reduce(lambda x,y: x+', '+y, contacts_cols) + ") VALUES (" +  ('%s, '*len(forwarded_cols))[:-2] + ');'
+            cmd = "INSERT INTO " + contacts['table'] +  ' (' +  reduce(lambda x,y: x+', '+y, contacts['cols']) + ") VALUES (" +  ('%s, '*len(contacts['cols']))[:-2] + ');'
             self.cur.execute(cmd, args)
             self.conn.commit()
 
     def parse_forward(self, msg, is_media=False):
-        cmd = 'INSERT INTO ' + forwarded_table + ' (' +  reduce(lambda x,y: x+', '+y, forwarded_cols[1:]) + ') VALUES (' + ('%s, '*len(forwarded_cols[1:]))[:-2] + ');'
+        cmd = 'INSERT INTO ' + forwarded['table'] + ' (' +  reduce(lambda x,y: x+', '+y, forwarded['cols'][1:]) + ') VALUES (' + ('%s, '*len(forwarded['cols'][1:]))[:-2] + ');'
         args = []
         args.append(msg['forward_from']['id'])
         #self.parse_contact(msg, from_str='forward_from')
@@ -132,8 +134,8 @@ class Bot:
             args.append(msg['text'])
         self.cur.execute(cmd, args)
         self.conn.commit()
-        cmd2 = 'SELECT * FROM ' + forwarded_table + ' WHERE from_id=%s AND date=%s'
-        self.cur.execute(cmd2, [args[forwarded_cols.index('from_id')-1], args[forwarded_cols.index('date')-1]])
+        cmd2 = 'SELECT * FROM ' + forwarded['table'] + ' WHERE from_id=%s AND date=%s'
+        self.cur.execute(cmd2, [args[forwarded['cols'].index('from_id')-1], args[forwarded['cols'].index('date')-1]])
         return self.cur.fetchone()[0]
 
     def parse_media(self, msg, unread=False):
@@ -268,7 +270,7 @@ class Bot:
     def show_request(self, *args):
         if len(args) > 0:
             if args[0] == 'contacts':
-                self.cur.execute('SELECT * FROM ' + contacts_table)
+                self.cur.execute('SELECT * FROM ' + contacts['table'])
                 text = ''
                 for info in self.cur.fetchall():
                     text += info[1]
@@ -281,18 +283,18 @@ class Bot:
 
     def show_message(self, msg_id, prefix='', is_reply=False, is_media=False):
         if is_media:
-            table = media_table
-            cols = media_cols
+            table = media['table']
+            cols = media['cols']
         else:
-            table = messages_table
-            cols = messages_table
+            table = messages['table']
+            cols = messages['table']
         self.cur.execute('SELECT * FROM ' + table + ' WHERE msg_id=%s', (msg_id,))
         msg_list = self.cur.fetchone()
         debug_exception = msg_list[0]
         if msg_list is None:
             print("No message with id " + str(msg_id) + " in database, can't show it")
             return
-        msg = self.msg_list_to_dict(msg_list, cols=media_cols if is_media else messages_cols)
+        msg = self.msg_list_to_dict(msg_list, cols=media['cols'] if is_media else messages['cols'])
         user_id = msg['from_id']
         name = self.get_full_name_from_id(user_id)
         from_to = prefix
@@ -317,24 +319,24 @@ class Bot:
                 msg2 = self.media_funcs[msg['type']](father_id, msg['file_id'])
             else:
                 msg2 = self.bot.forwardMessage(father_id, msg['from_id'], msg['msg_id'])
-        cmd = "INSERT INTO " + reply_table + " (father_id, source_id) VALUES (%s, %s)"
+        cmd = "INSERT INTO " + reply['table'] + " (father_id, source_id) VALUES (%s, %s)"
         self.cur.execute(cmd, [msg1['message_id'], msg['msg_id']])
         self.cur.execute(cmd, [msg2['message_id'], msg['msg_id']])
         self.conn.commit()
 
     def reply_request(self, msg):
         msg1 = msg['reply_to_message']
-        self.cur.execute('SELECT * FROM Reply WHERE father_id=%s', [msg1['message_id']])
+        self.cur.execute('SELECT * FROM ' + reply['table'] + ' WHERE father_id=%s', [msg1['message_id']])
         #print(msg['message_id'])
         try:
             msg_id = self.cur.fetchone()[1]
         except TypeError:
             print("Can't reply: no source message in 'reply' database")
             return
-        self.cur.execute('SELECT * FROM ' + messages_table + ' WHERE msg_id=%s', [msg_id])
+        self.cur.execute('SELECT * FROM ' + messages['table'] + ' WHERE msg_id=%s', [msg_id])
         msg_list = self.cur.fetchone()
         if msg_list is None:
-            self.cur.execute('SELECT * FROM ' + media_table + ' WHERE msg_id=%s', [msg_id])
+            self.cur.execute('SELECT * FROM ' + media['table'] + ' WHERE msg_id=%s', [msg_id])
             msg_list = self.cur.fetchone()
             if msg_list is None:
                 print("Can't reply: no source message in 'messages' database")
@@ -366,9 +368,9 @@ class Bot:
                 self.broadcast(text=args[0]['text'])
                 self.form = {}
                 return
-             sent_msg = self.bot.sendMessage(self.form['user_id'], args[0]['text'])
-             self.parse(sent_msg, False, self.form['user_id'])
-             self.form = {}
+            sent_msg = self.bot.sendMessage(self.form['user_id'], args[0]['text'])
+            self.parse(sent_msg, False, self.form['user_id'])
+            self.form = {}
 
     def stream_request(self, *args):
         if len(self.form) == 0:
@@ -414,11 +416,11 @@ class Bot:
         if len(args) == 0:
             self.stop['mode'] = 'start'
             self.stop['exceptions'] = []
-            for table in [messages_table, media_table]:
+            for table in [messages['table'], media['table']]:
                 self.cur.execute("SELECT msg_id, unread FROM " + table + " WHERE unread='t'")
                 unread = self.cur.fetchall()
                 for msg in unread:
-                    self.show_message(msg[0], is_media=True if table==media_table else False)
+                    self.show_message(msg[0], is_media=True if table==media['table'] else False)
                 self.cur.execute("UPDATE " + table + " SET unread='f' WHERE unread='t'")
                 self.conn.commit()
         elif len(args) == 1:
@@ -439,11 +441,11 @@ class Bot:
                 self.stop['exceptions'].append(user_id)
                 view_unr = True
             if view_unr:
-                for table in [messages_table, media_table]:
+                for table in [messages['table'], media['table']]:
                     self.cur.execute("SELECT msg_id, from_id, unread FROM " + table +" WHERE unread='t' AND from_id=%s", (user_id,))
                     unread = self.cur.fetchall()
                     for msg in unread:
-                        self.show_message(msg[0], is_media=True if table==media_table else False)
+                        self.show_message(msg[0], is_media=True if table==media['table'] else False)
                     self.cur.execute("UPDATE " + table + " SET unread='f' WHERE unread='t' AND from_id=%s", (user_id,))
                     self.conn.commit()
             self.form = {}
@@ -473,7 +475,7 @@ class Bot:
                 status += self.get_full_name_from_id(user_id) + '\n'
         else:
             status += '\n'
-        self.cur.execute("SELECT unread FROM Messages WHERE unread='t'")
+        self.cur.execute("SELECT unread FROM " + messages['table'] + " WHERE unread='t'")
         unread = self.cur.fetchall()
         if unread is None or len(unread) == 0:
             status += "You haven't unread messages\n"
@@ -535,17 +537,17 @@ class Bot:
                 name = msg['text']
                 if name.lower().split()[0] == "blacklist" or name.lower().split()[0] == "unblacklist":
                     name = name[name.find(' ')+1:]
-                self.determine_info(msg, name, 'Contacts' if self.form['to'] else 'Blacklist')
+                self.determine_info(msg, name, contacts['table'] if self.form['to'] else blacklist['table'])
                 return
             elif len(self.determine) == 1:
                 info = self.determine.pop('result')
             print(info, len(self.determine))
             if self.form['to']:
-                table_from = 'Contacts'
-                table_to = 'Blacklist'
+                table_from = contacts['table']
+                table_to = blacklist['table']
             else:
-                table_to = 'Contacts'
-                table_from = 'Blacklist'
+                table_to = contacts['table']
+                table_from = blacklist['table']
             cmd = ("WITH moved_rows AS (DELETE FROM " + table_from 
                     + " WHERE id=%s RETURNING *) INSERT INTO " + table_to + " SELECT * FROM moved_rows")
             print(cmd)
@@ -584,7 +586,7 @@ class Bot:
                 if 'user_id' in self.form:
                     if self.form['request'] in ['stream', 'dialog', 'send']:
                         c_type, file_id = self.parse_media(msg)
-                        if self.form['request'] = 'send' and self.form['user_id'] == 'all':
+                        if self.form['request'] == 'send' and self.form['user_id'] == 'all':
                             self.broadcast(file_type=c_type, file_id=file_if)
                             self.form = {}
                             return
@@ -620,27 +622,27 @@ class Bot:
             self.broadcast(text=self.form['text'])
             self.form = {}
             return
-        sent_msg = self.sendMessage(info[0], self.form['text'])
+        sent_msg = self.bot.sendMessage(info[0], self.form['text'])
         self.parse(sent_msg, False, to_id=info[0])
         self.form = {}
     
     def broadcast(self, text=None, file_type=None, file_id=None):
         if text is not None:
-            self.cur.execute("SELECT * FROM " + contacts_table)
+            self.cur.execute("SELECT * FROM " + contacts['table'])
             users = self.cur.fetchall()
             users = [x for x in users if x[0] != int(father_id) and x[0] != int(bot_id)]
             for user in users:
                 sent_msg = self.bot.sendMessage(user[0], text)
                 self.parse(sent_msg, False, to_id=user[0])
         if file_type is not None:
-            self.cur.execute("SELECT * FROM " + contacts_table)
+            self.cur.execute("SELECT * FROM " + contacts['table'])
             users = self.cur.fetchall()
             users = [x for x in users if x[0] != int(father_id) and x[0] != int(bot_id)]
             for user in users:
                 sent_msg = self.media_funcs[file_type](user[0], file_id)
                 self.parse(sent_msg, False, to_id=user[0], is_media=True)
 
-    def determine_info(self, msg, name=None, table='Contacts'):
+    def determine_info(self, msg, name=None, table=contacts['table']):
         if name is not None:
             if name.lower() in ['all', '.all'] or (msg is not None and msg['text'].lower() in ['all','.all']):
                 if self['request'] not in ['media', 'send', 'special_send', 'general_send']:
@@ -719,17 +721,35 @@ class Bot:
                 self.handle(msg)
                 return
 
+    def check_tables(self):
+        for table in all_tables:
+            self.cur.execute("SELECT to_regclass(%s);", (table['table'],))
+            fetch = self.cur.fetchall()[0][0]
+            if fetch is None or len(fetch) == 0:
+                cmd = "CREATE TABLE " + table['table']
+                columns = reduce(lambda x,y:x+','+y, map(lambda x,y: x+' '+y, table['cols'], table['types']))
+                cmd += ' (' + columns + ');'
+                self.cur.execute(cmd)
+                self.conn.commit()
+                continue
+            self.cur.execute("SELECT column_name FROM information_schema.columns WHERE table_name=%s;", (table['table'],))
+            real_cols = [x[0] for x in self.cur.fetchall()]
+            for index, column in enumerate(table['cols']):
+                if column not in real_cols:
+                    self.cur.execute("ALTER TABLE " + table['table'] + " ADD COLUMN " + column + ' ' + table['types'][index] + ';')
+                    self.conn.commit()
+
 
     # internal transfroming functions
 
-    def msg_list_to_dict(self, msg_list, cols=messages_cols):
+    def msg_list_to_dict(self, msg_list, cols=messages['cols']):
         msg_dict = {}
         for i, item in enumerate(cols):
             msg_dict[item] = msg_list[i]
         return msg_dict
     
     def get_full_name_from_id(self, msg_id):
-        self.cur.execute('SELECT * FROM Contacts WHERE id=%s', (msg_id,))
+        self.cur.execute('SELECT * FROM ' + contacts['table'] + ' WHERE id=%s', (msg_id,))
         l = self.cur.fetchone()
         if l is None:
             return None
@@ -740,7 +760,7 @@ class Bot:
             name += ' @' + l[3]
         return name
 
-    def get_info_from_full_name(self, name, table='Contacts'):
+    def get_info_from_full_name(self, name, table=contacts['table']):
         name = name.split()
         username = None
         to_del = -1

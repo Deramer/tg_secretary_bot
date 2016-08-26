@@ -1,8 +1,11 @@
-create tables if they don't exist;
 debug 'broadcast' feature;
-check the code on windows (after tables);
+check the code on windows (after tables); (I wasn't able even to start python3... What?)
 write fairly fat readme !important;
 show messages from a specific user;
 add good logging;
 do smth with printing oserror101 exceptions, they are annoying;
 do commits regularly.
+
+little tasks:
+from show contacts delete bot and father;
+show blacklist.

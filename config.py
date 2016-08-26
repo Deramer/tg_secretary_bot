@@ -17,15 +17,23 @@ bot_id = '248756472'
 Ok, that's it. The rest of file is about sql tables, I'll hopefully handle them myself.
 You can change tables' names and some of the columns' names and still have hope that bot will work. Though I see no reason for this.
 """
-forwarded_table = 'forwarded'
-messages_table = 'messages'
-forwarded_cols = ['id', 'from_id', 'date', 'text']
-messages_cols = ['msg_id', 'from_id', 'date', 'reply_to_msg_id', 'forwarded_id', 'text', 'to_me', 'unread']
-reply_table = 'reply'                   # OK. When I'm forwarding a message to the father chat, I'm losing it's original id
-reply_cols = ['father_id', 'source_id']   # "reply" table allows to restore this information
-contacts_table = 'contacts'
-contacts_cols = ['id', 'first_name', 'last_name', 'username']
-blacklist_table = 'blacklist'
-blacklist_cols = ['id', 'first_name', 'last_name', 'username']
-media_table = 'media'
-media_cols = ['msg_id', 'from_id', 'date', 'reply_to_msg_id', 'forwarded_id', 'type', 'file_id', 'to_me', 'unread']
+messages, forwarded, reply, contacts, blacklist, media = {}, {}, {}, {}, {}, {}
+all_tables = [messages, forwarded, reply, contacts, blacklist, media]
+messages['table'] = 'messages'
+messages['cols'] = ['msg_id', 'from_id', 'date', 'reply_to_msg_id', 'forwarded_id', 'text', 'to_me', 'unread']
+messages['types'] = ['INT UNIQUE', 'INT', 'TIMESTAMP', 'INT', 'INT', 'VARCHAR(2000)', 'BOOLEAN', 'BOOLEAN']
+forwarded['table'] = 'forwarded'
+forwarded['cols'] = ['id', 'from_id', 'date', 'text']
+forwarded['types'] = ['SERIAL PRIMARY KEY', 'INT', 'TIMESTAMP', 'VARCHAR(2000)']
+reply['table'] = 'reply'                   # OK. When I'm forwarding a message to the father chat, I'm losing it's original id
+reply['cols'] = ['father_id', 'source_id']   # "reply" table allows to restore this information
+reply['types'] = ['INT', 'INT']
+contacts['table'] = 'contacts'
+contacts['cols'] = ['id', 'first_name', 'last_name', 'username']
+contacts['types'] = ['INT UNIQUE', 'VARCHAR(100)', 'VARCHAR(100)', 'VARCHAR(100)']
+blacklist['table'] = 'blacklist'
+blacklist['cols'] = ['id', 'first_name', 'last_name', 'username']
+blacklist['types'] = ['INT UNIQUE', 'VARCHAR(100)', 'VARCHAR(100)', 'VARCHAR(100)']
+media['table'] = 'media'
+media['cols'] = ['msg_id', 'from_id', 'date', 'reply_to_msg_id', 'forwarded_id', 'type', 'file_id', 'to_me', 'unread']
+media['types'] = ['INT UNIQUE', 'INT', 'TIMESTAMP', 'INT', 'INT', 'INT', 'VARCHAR(120)', 'BOOLEAN', 'BOOLEAN']
