@@ -38,18 +38,29 @@ Commands are case-insensitive. "cancel", "Cancel" and "CaNcEl" are completely id
 
 8) While sending a particular message, enter *all* or *.all* instead of user's name to send it to all users from contacts list.
 
-###Other functions
+###Show family
+
+Show gives you information of various kinds.
 
 *show contacts* - full list of users who can be targets in any operation that requires user. In telegram bot can't write to user first and can't send messages to other bots at all, so this is really full list.
 
+*show blacklist* - about blacklist see paragraph in "Other functions". This command... shows blacklist.
+
+*show status* - show: what you are doing (stream, dialog); status of accepting messages (stop/start, exceptions); number of unread messages. Also available as *status* and *\status*.
+
+###Other functions
+
 Enter *blacklist* and *unblacklist* with user's name to add to and remove from the blacklist. Blacklisted users are not allowed to send messages to the bot.
 
-Enter "stop" to stop viewing recieved messages. Enter "start" to view all received during "stop" mode and return to normal mode.
+Enter *stop* to stop viewing recieved messages. Enter *start* to view all received during "stop" mode and return to normal mode.
 "Stop" or "start" with user's name will do exactly the same for particular user.
 Dialog with a user is "stop", "start user", "stream" to user.
 
+*Cancel* or *\cancel* stops nearly every operation.
 
-##Notes on code:
+*\reset* resets any operation you were doing, as well as call *start*. It is not really possible to distinguish bot after *\reset* and after restart, except that for restarting you need system administrator to boot server. If something goes horribly wrong - *\reset* it.
+
+##Notes on the code:
 
 - There're three variables that control the flow of the data. self.stop for stop/start, self.determine for getting id of a target user from "father's" information and self.form for filling "form", which contains information that will be needed after next message of father.
 Do not increase this number. Now it all is just complicated, but after a few wrong steps it will become not-working-at-all.
@@ -60,5 +71,4 @@ Do not increase this number. Now it all is just complicated, but after a few wro
 - self.determine\_info and self.parse are created to be called from other functions. So they are quite complicated. Touch them only if you are completely sure that you know what you are doing.
 
 - self.special\_send\_request is a good example. If there must be a new feature, let it be alike.
-(though, I'm sure, it is not an example of good style. It is just about "how all this thing works".)
-
+(though, I'm sure, it is not an example of good style. It is just about "how all this works".)

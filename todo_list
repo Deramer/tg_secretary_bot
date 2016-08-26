@@ -1,11 +1,13 @@
-debug 'broadcast' feature;
 check the code on windows (after tables); (I wasn't able even to start python3... What?)
-write fairly fat readme !important;
 show messages from a specific user;
 add good logging;
 do smth with printing oserror101 exceptions, they are annoying;
 do commits regularly.
+? add marks to users, like ".mark" to quicker referring.
 
 little tasks:
-from show contacts delete bot and father;
-show blacklist.
+write a bot to determine father_id and bot_id;
+rewrite stream and send so that they accept form "stream user".
+
+improve code:
+rewrite self.process_father_message using dictionaries, not the endless series of if statements.

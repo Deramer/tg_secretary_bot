@@ -171,6 +171,9 @@ class Bot:
             if cmd == 'status':
                 self.status_request()
                 return
+            if cmd == 'reset':
+                self.reset_request()
+                return
         if len(self.determine) > 1:
             self.determine_info(msg=msg)
             return
@@ -269,17 +272,25 @@ class Bot:
 
     def show_request(self, *args):
         if len(args) > 0:
-            if args[0] == 'contacts':
-                self.cur.execute('SELECT * FROM ' + contacts['table'])
+            if args[0] == 'contacts' or args[0] == 'blacklist':
+                table = contacts['table'] if args[0] == 'contacts' else blacklist['table']
+                self.cur.execute('SELECT * FROM ' + table)
                 text = ''
                 for info in self.cur.fetchall():
+                    if info[0] in [int(father_id), int(bot_id)]:
+                        continue
                     text += info[1]
                     if info[2] != '':
                         text += ' ' + info[2]
                     if info[3] != '':
                         text += ' @' + info[3]
                     text += '\n'
-                self.bot.sendMessage(father_id, text)
+                if text == '':
+                    self.bot.sendMessage(father_id, args[0].capitalize() + ' table is empty')
+                else:
+                    self.bot.sendMessage(father_id, text)
+            if args[0] == 'status':
+                self.status_request()
 
     def show_message(self, msg_id, prefix='', is_reply=False, is_media=False):
         if is_media:
@@ -453,8 +464,14 @@ class Bot:
     def status_request(self):
         status = ''
         if len(self.form) > 0:
-            if self.form['request'] == 'send':
+            if self.form['request'] in ['send', 'general_send', 'special_send']:
                 status += 'You are sending message'
+                if 'user_id' in self.form:
+                    status += ' to ' + self.get_full_name_from_id(self.form['user_id']) + '\n'
+                else:
+                    status += '\n'
+            elif self.form['request'] == 'media':
+                status += 'You are sending media'
                 if 'user_id' in self.form:
                     status += ' to ' + self.get_full_name_from_id(self.form['user_id']) + '\n'
                 else:
@@ -465,6 +482,14 @@ class Bot:
                     status += ' to ' + self.get_full_name_from_id(self.form['user_id']) + '\n'
                 else:
                     status += '\n'
+            elif self.form['request'] == 'dialog':
+                status += 'You have dialog'
+                if 'user_id' in self.form:
+                    status += ' with ' + self.get_full_name_from_id(self.form['user_id']) + '\n'
+                else:
+                    status += '\n'
+        if len(self.determine) > 0:
+            status += 'Now you need to choose a user\n'
         if self.stop['mode'] == 'stop':
             status += 'Accepting of messages is stopped'
         else:
@@ -521,7 +546,6 @@ class Bot:
             self.form['user_id'] = info[0]
             return
         if len(self.form) == 2:
-            print(2, len(self.determine))
             sent_msg = self.bot.sendMessage(self.form['user_id'], args[0]['text'])
             self.parse(sent_msg, False, self.form['user_id'])
 
@@ -541,7 +565,6 @@ class Bot:
                 return
             elif len(self.determine) == 1:
                 info = self.determine.pop('result')
-            print(info, len(self.determine))
             if self.form['to']:
                 table_from = contacts['table']
                 table_to = blacklist['table']
@@ -559,7 +582,6 @@ class Bot:
         if len(self.determine) == 0:
             self.form['request'] = 'special_send'
             self.form['text'] = msg['text'][:msg['text'].rfind('\n')]
-            print(self.form['text'])
             name = msg['text'].split('\n')[-1]
             name = name[name.find(' ')+1:]
             self.determine_info(msg, name)
@@ -625,6 +647,11 @@ class Bot:
         sent_msg = self.bot.sendMessage(info[0], self.form['text'])
         self.parse(sent_msg, False, to_id=info[0])
         self.form = {}
+
+    def reset_request(self):
+        self.form = {}
+        self.determine = {}
+        self.start_request()
     
     def broadcast(self, text=None, file_type=None, file_id=None):
         if text is not None:
@@ -645,7 +672,7 @@ class Bot:
     def determine_info(self, msg, name=None, table=contacts['table']):
         if name is not None:
             if name.lower() in ['all', '.all'] or (msg is not None and msg['text'].lower() in ['all','.all']):
-                if self['request'] not in ['media', 'send', 'special_send', 'general_send']:
+                if self.form['request'] not in ['media', 'send', 'special_send', 'general_send']:
                     self.bot.sendMessage(father_id, 'all is not enabled for this request.')
                     return
                 self.determine = {}
@@ -689,11 +716,12 @@ class Bot:
                 self.form = {}
                 return
             if msg is not None and msg['text'].lower() in ['all','.all']:
-                if self['request'] not in ['media', 'send', 'special_send', 'general_send']:
+                if self.form['request'] not in ['media', 'send', 'special_send', 'general_send']:
                     self.bot.sendMessage(father_id, 'all is not enabled for this request.')
                     return
                 self.determine = {}
                 self.determine['result'] = 'all'
+                self.handle(msg)
                 return
             if 'variants' not in self.determine:
                 print('Determine_info(msg) was called, though variants are not in dictionary. Think again.\n'
@@ -784,7 +812,7 @@ class Bot:
             res = []
         if username is not None and res is not None:
             res = [x for x in res if x[3] == username]
-        res = [x for x in res if x[0] != int(father_id)]
+        res = [x for x in res if x[0] != int(father_id) and x[0] != int(bot_id)]
         return res
 
     def get_full_name_from_info(self, l):
