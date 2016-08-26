@@ -4,10 +4,15 @@ Does it need a name?
 ##Requirements
 
 To run program you'll need:
-- python3
-- PostgreSQL (9.4+)
-- psycopg2 
-- telepot
+
+- python3,
+
+- PostgreSQL (9.4+),
+
+- psycopg2,
+
+- telepot.
+
 Tested configuration is python3.5.2, PostgreSQL v9.5.4, psycopg2 v2.6.1, telepot v8.3 and Ubuntu 16.04LTS.
 
 After installing that, fill first lines of *config.py*. Open it for instructions.
