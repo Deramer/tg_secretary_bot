@@ -27,21 +27,21 @@ Commands are case-insensitive. "cancel", "Cancel" and "CaNcEl" are completely id
 
 ###Method's of sending:
 
-1) just type anything that is not a command. You'll be asked about target user.
+1. just type anything that is not a command. You'll be asked about target user.
 
-2) Type some text, on the next line print *To* and something, identifying target user.
+2. Type some text, on the next line print *To* and something, identifying target user.
 
-3) Send message *send* to the bot and follow instructions.
+3. Send message *send* to the bot and follow instructions.
 
-4) To reply a particular message, use telegram function 'reply'. Bot will reply to user that sent message.
+4. To reply a particular message, use telegram function 'reply'. Bot will reply to user that sent message.
 
-5) Send message *stream* and follow instructions to open a "stream" to user. Every message sent to the bot during "streaming" will be sent to that user instantly. "Cancel" will stop this madness. Messages from every user will be shown immediately after recieving.
+5. Send message *stream* and follow instructions to open a "stream" to user. Every message sent to the bot during "streaming" will be sent to that user instantly. "Cancel" will stop this madness. Messages from every user will be shown immediately after recieving.
 
-6) *Dialog* is similar to "stream", but only messages from the target user will be shown. The rest will be shown after closing of the dialog.
+6. *Dialog* is similar to "stream", but only messages from the target user will be shown. The rest will be shown after closing of the dialog.
 
-7) To send document/photo/video/audio, send it to the bot. In stream and dialog it will be sent to the target user, in normal mode you will be asked about the target.
+7. To send document/photo/video/audio, send it to the bot. In stream and dialog it will be sent to the target user, in normal mode you will be asked about the target.
 
-8) While sending a particular message, enter *all* or *.all* instead of user's name to send it to all users from contacts list.
+8. While sending a particular message, enter *all* or *.all* instead of user's name to send it to all users from contacts list.
 
 ###Show family
 

@@ -216,12 +216,15 @@ class Bot:
             if self.form['request'] == 'media':
                 self.media_request(msg)
                 return
+            if self.form['request'] == 'history':
+                self.history_request(msg)
+                return
         text = msg['text'].lower()
         space = text.find(' ')
         if space != -1:
             word = text[:space]
             if word == 'show':
-                self.show_request(text[space + 1:])
+                self.show_request(msg)
             elif word == 'reply':
                 self.reply_request(text[space + 1:])
             elif word == 'send' or text == 'написать' or text == 'write':
@@ -270,7 +273,8 @@ class Bot:
                 self.form['type'] = 99
                 self.bot.sendMessage(father_id, 'Send it to...')
 
-    def show_request(self, *args):
+    def show_request(self, msg):
+        args = msg['text'].lower().split()[1:]
         if len(args) > 0:
             if args[0] == 'contacts' or args[0] == 'blacklist':
                 table = contacts['table'] if args[0] == 'contacts' else blacklist['table']
@@ -289,8 +293,12 @@ class Bot:
                     self.bot.sendMessage(father_id, args[0].capitalize() + ' table is empty')
                 else:
                     self.bot.sendMessage(father_id, text)
-            if args[0] == 'status':
+            elif args[0] == 'status':
                 self.status_request()
+            elif args[0] == 'messages' or args[0] == 'history':
+                self.history_request(msg)
+            else:
+                self.bot.sendMessage(father_id, "There's no such show request")
 
     def show_message(self, msg_id, prefix='', is_reply=False, is_media=False):
         if is_media:
@@ -653,6 +661,106 @@ class Bot:
         self.determine = {}
         self.start_request()
     
+    def history_request(self, msg):
+        if 'request' not in self.form:
+            self.form['request'] = 'history'
+            self.bot.sendMessage(father_id, 'Enter the name of a target user')
+        elif len(self.form) == 1:
+            if len(self.determine) == 0:
+                self.determine_info(msg, msg['text'])
+                return
+            elif len(self.determine) == 1:
+                info = self.determine.pop('result')
+                if info == 'all':
+                    self.form['user_id'] = 'all'
+                else:
+                    self.form['user_id'] = info[0]
+                self.bot.sendMessage(father_id, "Select mode, one of 'last', 'by date', 'all'")
+        elif len(self.form) == 2:
+            mode = msg['text'].lower()
+            if mode not in ['last', 'by date', 'all']:
+                self.bot.sendMessage(father_id, msg['text'] + " is not one of 'last', 'by date', 'all'. Try again.")
+                return
+            elif mode == 'all':
+                self.form['mode'] = 'all'
+                cmd = 'SELECT COUNT(*) FROM ' + messages['table'] + ' NATURAL FULL OUTER JOIN ' + media['table']
+                if self.form['user_id'] != 'all':
+                    cmd += ' WHERE from_id=%s;'
+                    self.cur.execute(cmd, (self.form['user_id'],))
+                else:
+                    cmd += ';'
+                    self.cur.execute(cmd)
+                number = self.cur.fetchall()
+                self.form['number'] = number[0][0]
+                self.form['date_from'] = 0
+                self.form['date_to'] = 0
+            elif mode == 'last':
+                self.form['mode'] = 'last'
+                self.bot.sendMessage(father_id, "Enter the number of messages that you want to see")
+                return
+            elif mode == 'by date':
+                pass
+        elif len(self.form) == 3:
+            if self.form['mode'] == 'last':
+                number = msg['text']
+                try:
+                    number = int(number)
+                except ValueError:
+                    self.bot.sendMessage(father_id, msg['text'] + ' is not a number. Try again.')
+                    return
+                self.form['number'] = number
+                self.form['date_from'] = 0
+                self.form['date_to'] = 0
+        elif len(self.form) == 4:
+            pass
+        if len(self.form) == 6:
+            if self.form['number'] > 10:
+                self.bot.sendMessage(father_id, "There're more than 10 messages to show. Do you want them as a text file? (Yes/No)")
+                self.form['txt'] = 'request'
+                return
+            else:
+                self.form['txt'] = 'no'
+                self.send_history()
+                return
+        if len(self.form) == 7:
+            if msg['text'].lower() == 'yes':
+                self.form['txt'] = 'yes'
+                self.send_history()
+                return
+            elif msg['text'].lower() == 'no':
+                self.form['txt'] = 'no'
+                self.send_history()
+                return
+            else:
+                self.bot.sendMessage(father_id, 'The answer must be "yes" or "no". Try again.')
+                return
+
+    def send_history(self):
+        if 'request' not in self.form or self.form['request'] != 'history' or len(self.form) != 7:
+            print('self.send_history was called in some wrong conditions. Here is self.form:', self.form)
+            return
+        if self.form['number'] == 0:
+            self.bot.sendMessage(father_id, "There're no such messages")
+            return
+        if self.form['mode'] == 'all' or self.form['mode'] == 'last':
+            args = []
+            cmd = 'SELECT msg_id, text FROM ' + messages['table'] + ' NATURAL FULL OUTER JOIN ' + media['table'] + ' '
+            if self.form['user_id'] != 'all':
+                cmd += 'WHERE from_id=%s '
+                args.append(self.form['user_id'])
+            cmd += 'ORDER BY msg_id DESC LIMIT %s'
+            args.append(self.form['number'])
+            self.cur.execute(cmd, args)
+        if self.form['mode'] == 'by date':
+            pass
+        msgs = self.cur.fetchall()
+        if self.form['txt'] == 'yes':
+            pass
+        else:
+            for msg in msgs:
+                self.show_message(msg[0], is_media=True if msg[1] is None else False)       # Look at cmd: SELECT msg_id, text
+        self.form = {}
+
     def broadcast(self, text=None, file_type=None, file_id=None):
         if text is not None:
             self.cur.execute("SELECT * FROM " + contacts['table'])

@@ -2,6 +2,7 @@ check the code on windows (after tables); (I wasn't able even to start python3..
 show messages from a specific user;
 add good logging;
 do smth with printing oserror101 exceptions, they are annoying;
+rewrite media: no messages from father to bot should be saved in database;
 do commits regularly.
 ? add marks to users, like ".mark" to quicker referring.
 
