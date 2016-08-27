@@ -1,5 +1,4 @@
 check the code on windows (after tables); (I wasn't able even to start python3... What?)
-show messages from a specific user;
 add good logging;
 do smth with printing oserror101 exceptions, they are annoying;
 rewrite media: no messages from father to bot should be saved in database;

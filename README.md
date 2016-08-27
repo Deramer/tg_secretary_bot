@@ -15,7 +15,7 @@ To run program you'll need:
 
 Tested configuration is python3.5.2, PostgreSQL v9.5.4, psycopg2 v2.6.1, telepot v8.3 and Ubuntu 16.04LTS.
 
-After installing that, fill first lines of *config.py*. Open it for instructions.
+After installing that, fill first lines of **config.py**. Open it for instructions.
 
 Finally, run run\_me.py.
 
@@ -29,41 +29,53 @@ Commands are case-insensitive. "cancel", "Cancel" and "CaNcEl" are completely id
 
 1. just type anything that is not a command. You'll be asked about target user.
 
-2. Type some text, on the next line print *To* and something, identifying target user.
+2. Type some text, on the next line print **To** and something, identifying target user.
 
-3. Send message *send* to the bot and follow instructions.
+3. Send message **send** to the bot and follow instructions.
 
 4. To reply a particular message, use telegram function 'reply'. Bot will reply to user that sent message.
 
-5. Send message *stream* and follow instructions to open a "stream" to user. Every message sent to the bot during "streaming" will be sent to that user instantly. "Cancel" will stop this madness. Messages from every user will be shown immediately after recieving.
+5. Send message **stream** and follow instructions to open a "stream" to user. Every message sent to the bot during "streaming" will be sent to that user instantly. "Cancel" will stop this madness. Messages from every user will be shown immediately after recieving.
 
-6. *Dialog* is similar to "stream", but only messages from the target user will be shown. The rest will be shown after closing of the dialog.
+6. **Dialog** is similar to "stream", but only messages from the target user will be shown. The rest will be shown after closing of the dialog.
 
 7. To send document/photo/video/audio, send it to the bot. In stream and dialog it will be sent to the target user, in normal mode you will be asked about the target.
 
-8. While sending a particular message, enter *all* or *.all* instead of user's name to send it to all users from contacts list.
+8. While sending a particular message, enter **all** or **.all** instead of user's name to send it to all users from contacts list.
 
 ###Show family
 
 Show gives you information of various kinds.
 
-*show contacts* - full list of users who can be targets in any operation that requires user. In telegram bot can't write to user first and can't send messages to other bots at all, so this is really full list.
+**show contacts** - full list of users who can be targets in any operation that requires user. In telegram bot can't write to user first and can't send messages to other bots at all, so this is really full list.
 
-*show blacklist* - about blacklist see paragraph in "Other functions". This command... shows blacklist.
+**show blacklist** - about blacklist see paragraph in "Other functions". This command... shows blacklist.
 
-*show status* - show: what you are doing (stream, dialog); status of accepting messages (stop/start, exceptions); number of unread messages. Also available as *status* and *\status*.
+**show status** - show: what you are doing (stream, dialog); status of accepting messages (stop/start, exceptions); number of unread messages. Also available as **status** and **\status**.
+
+**show message _id_** - show message with given numeric id. Id's can be found in text files with history.
+
+**show history** or **show messages** - show history in various ways. 
+
+- Last - will show last _number_ messages, where _number_ will be asked in process.
+
+- All - show all history.
+
+- By date - messages sent in the given time interval.
+
+History can be put in text file and sent as a document.
 
 ###Other functions
 
-Enter *blacklist* and *unblacklist* with user's name to add to and remove from the blacklist. Blacklisted users are not allowed to send messages to the bot.
+Enter **blacklist** and **unblacklist** with user's name to add to and remove from the blacklist. Blacklisted users are not allowed to send messages to the bot.
 
-Enter *stop* to stop viewing recieved messages. Enter *start* to view all received during "stop" mode and return to normal mode.
+Enter **stop** to stop viewing recieved messages. Enter **start** to view all received during "stop" mode and return to normal mode.
 "Stop" or "start" with user's name will do exactly the same for particular user.
 Dialog with a user is "stop", "start user", "stream" to user.
 
-*Cancel* or *\cancel* stops nearly every operation.
+**Cancel** or **\cancel** stops nearly every operation.
 
-*\reset* resets any operation you were doing, as well as call *start*. It is not really possible to distinguish bot after *\reset* and after restart, except that for restarting you need system administrator to boot server. If something goes horribly wrong - *\reset* it.
+**\reset** resets any operation you were doing, as well as call **start**. It is not really possible to distinguish bot after **\reset** and after restart, except that for restarting you need system administrator to boot server. If something goes horribly wrong - **\reset** it.
 
 ##Notes on the code:
 

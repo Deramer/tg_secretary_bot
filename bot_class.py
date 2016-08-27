@@ -297,16 +297,36 @@ class Bot:
                 self.status_request()
             elif args[0] == 'messages' or args[0] == 'history':
                 self.history_request(msg)
+            elif args[0] == 'message':
+                if len(args) > 1:
+                    try:
+                        msg_id = int(args[1])
+                    except ValueError:
+                        self.bot.sendMessage(father_id, 'Put a number - message id - after words "show message".')
+                        return
+                    self.cur.execute('SELECT * FROM ' + messages['table'] + ' WHERE msg_id=%s;', (msg_id,))
+                    res = self.cur.fetchall()
+                    if res is None or len(res) == 0:
+                        self.cur.execute('SELECT * FROM ' + media['table'] + ' WHERE msg_id=%s;', (msg_id,))
+                        res = self.cur.fetchall()
+                        if res is None or len(res) == 0:
+                            self.bot.sendMessage(father_id, "No message found with such id")
+                            return
+                        self.show_message(msg_id, is_media=True)
+                        return
+                    self.show_message(msg_id)
+                    return
+                self.bot.sendMessage(father_id, 'Put a number - message id - after words "show message".')
             else:
                 self.bot.sendMessage(father_id, "There's no such show request")
 
-    def show_message(self, msg_id, prefix='', is_reply=False, is_media=False):
+    def show_message(self, msg_id, prefix='', is_reply=False, is_media=False, output=None):
         if is_media:
             table = media['table']
             cols = media['cols']
         else:
             table = messages['table']
-            cols = messages['table']
+            cols = messages['cols']
         self.cur.execute('SELECT * FROM ' + table + ' WHERE msg_id=%s', (msg_id,))
         msg_list = self.cur.fetchone()
         debug_exception = msg_list[0]
@@ -322,26 +342,49 @@ class Bot:
         else:
             from_to += 'From me to ' + name
         from_to += ' at ' + str(msg['date'])
-        msg1 = self.bot.sendMessage(father_id, from_to)
-        #print(msg)
+        if output is None:
+            msg1 = self.bot.sendMessage(father_id, from_to)
+        else:
+            print(from_to, file=output)
         if not is_media:
             if msg['forwarded_id'] is None:
                 if msg['reply_to_msg_id'] is None or is_reply:
-                    msg2 = self.bot.sendMessage(father_id, msg['text'])
+                    if output is None:
+                        msg2 = self.bot.sendMessage(father_id, msg['text'])
+                    else:
+                        print(msg['text'], file=output)
                 else:
-                    msg2 = self.bot.sendMessage(father_id, msg['text'])
+                    if output is None:
+                        msg2 = self.bot.sendMessage(father_id, msg['text'])
+                    else:
+                        print(msg['text'], file=output)
                     self.show_message(msg['reply_to_msg_id'], 'Which is a reply to the message ', True)
             else:
-                msg2 = self.bot.forwardMessage(father_id, msg['from_id'], msg['msg_id'])
+                if output is None:
+                    msg2 = self.bot.forwardMessage(father_id, msg['from_id'], msg['msg_id'])
+                else:
+                    self.cur.execute('SELECT * FROM Forwarded WHERE id=%s', msg['forwarded_id'])
+                    forw_row = self.cur.fetchone()
+                    print('Forwarded from ' + self.get_full_name_from_id(forw_row[1])
+                            + '\n' + forw_row[3], file=output)
         else:
             if msg['forwarded_id'] is None:
-                msg2 = self.media_funcs[msg['type']](father_id, msg['file_id'])
+                if output is None:
+                    msg2 = self.media_funcs[msg['type']](father_id, msg['file_id'])
+                else:
+                    print('Media message, id ' + str(msg['msg_id']), file=output)
             else:
-                msg2 = self.bot.forwardMessage(father_id, msg['from_id'], msg['msg_id'])
-        cmd = "INSERT INTO " + reply['table'] + " (father_id, source_id) VALUES (%s, %s)"
-        self.cur.execute(cmd, [msg1['message_id'], msg['msg_id']])
-        self.cur.execute(cmd, [msg2['message_id'], msg['msg_id']])
-        self.conn.commit()
+                if output is None:
+                    msg2 = self.bot.forwardMessage(father_id, msg['from_id'], msg['msg_id'])
+                else:
+                    print('Media message, id ' + str(msg['msg_id']), file=output)
+        if output is None:
+            cmd = "INSERT INTO " + reply['table'] + " (father_id, source_id) VALUES (%s, %s)"
+            self.cur.execute(cmd, [msg1['message_id'], msg['msg_id']])
+            self.cur.execute(cmd, [msg2['message_id'], msg['msg_id']])
+            self.conn.commit()
+        else:
+            print(file=output)
 
     def reply_request(self, msg):
         msg1 = msg['reply_to_message']
@@ -699,7 +742,9 @@ class Bot:
                 self.bot.sendMessage(father_id, "Enter the number of messages that you want to see")
                 return
             elif mode == 'by date':
-                pass
+                self.form['mode'] = 'by date'
+                self.bot.sendMessage(father_id, 'Enter the "from" date in form "YY-MM-DD hh:mm". You can omit hh:mm or/and year.')
+                return
         elif len(self.form) == 3:
             if self.form['mode'] == 'last':
                 number = msg['text']
@@ -711,8 +756,38 @@ class Bot:
                 self.form['number'] = number
                 self.form['date_from'] = 0
                 self.form['date_to'] = 0
+            if self.form['mode'] == 'by date':
+                from_date = self.parse_date(msg['text'])
+                if from_date is None:
+                    self.bot.sendMessage(father_id, string + ' is not in the form "YY-MM-DD hh:mm". Try again.')
+                    return
+                self.form['from_date'] = from_date
+                self.bot.sendMessage(father_id, 'Enter the "to" date in form "YY-MM-DD hh:mm". ' 
+                        + 'You can omit hh:mm or/and year. You can also use "now".')
         elif len(self.form) == 4:
-            pass
+            if self.form['mode'] == 'by date':
+                if msg['text'].lower() == 'now':
+                    to_date = datetime.now()
+                else:
+                    to_date = self.parse_date(msg['text'])
+                    if to_date is None:
+                        self.bot.sendMessage(father_id, string + ' is not in the form "YY-MM-DD hh:mm". Try again.')
+                        return
+                self.form['to_date'] = to_date
+                args = []
+                cmd = 'SELECT msg_id, text FROM ' + messages['table'] + ' NATURAL FULL OUTER JOIN ' + media['table'] + ' WHERE'
+                if self.form['user_id'] != 'all':
+                    cmd += ' from_id=%s AND'
+                    args.append(self.form['user_id'])
+                cmd += ' date>%s AND date<%s '
+                cmd += 'ORDER BY msg_id DESC;'
+                args.append(self.form['from_date'])
+                args.append(self.form['to_date'])
+                self.cur.execute(cmd, args)
+                msgs = self.cur.fetchall()
+                self.form['number'] = len(msgs)
+                self.form['msgs'] = msgs            # yes, this is bad
+                self.form.pop('from_date')
         if len(self.form) == 6:
             if self.form['number'] > 10:
                 self.bot.sendMessage(father_id, "There're more than 10 messages to show. Do you want them as a text file? (Yes/No)")
@@ -751,15 +826,35 @@ class Bot:
             cmd += 'ORDER BY msg_id DESC LIMIT %s'
             args.append(self.form['number'])
             self.cur.execute(cmd, args)
+            msgs = self.cur.fetchall()
         if self.form['mode'] == 'by date':
-            pass
-        msgs = self.cur.fetchall()
+            msgs = self.form['msgs']
         if self.form['txt'] == 'yes':
-            pass
+            hist = open('temp_history.txt', 'w')
+            for msg in msgs[::-1]:
+                self.show_message(msg[0], is_media=True if msg[1] is None else False, output=hist)
+            hist.close()
+            self.bot.sendDocument(father_id, open('temp_history.txt', 'rb'))
         else:
-            for msg in msgs:
+            for msg in msgs[::-1]:
                 self.show_message(msg[0], is_media=True if msg[1] is None else False)       # Look at cmd: SELECT msg_id, text
         self.form = {}
+
+    def parse_date(self, string):
+        f_str = ''
+        if len(string.split('-')) == 2:
+            f_str += '%m-%d'
+        elif len(string.split('-')) == 3:
+            f_str += '%y-%m-%d'
+        if string.find(' ') != -1:
+            f_str += ' %H:%M'
+        try:
+            from_date = datetime.strptime(string, f_str)
+            if from_date.year == 1900:
+                from_date.replace(year=datetime.now.year)
+        except ValueError:
+            return
+        return from_date
 
     def broadcast(self, text=None, file_type=None, file_id=None):
         if text is not None:
@@ -804,7 +899,6 @@ class Bot:
                     self.determine.pop('table')
                 except KeyError:
                     pass
-                print('Ready to quit!', len(self.determine))
                 self.handle(msg)
                 return
             if len(info) > 1:
