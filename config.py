@@ -3,15 +3,15 @@ You need to fill this, until next comment.
 token will be given you by botfather in telegram.
 sql_host, sql_user, sql_passwd and dbname are what they seem to be. I won't create them.
 father_id is telegram id of human being that will read messages sent to bot and write sage answers.
-bot_id is id of bot. There're must be an echo bot to determine father_id and bot_id.
+bot_id is id of the bot. There're must be an echo bot to determine father_id and bot_id.
 """
 token = '248756472:AAHcRGmbcjkk11H2R_hKMpLLE5DMU47TOEw'
 sql_host = 'localhost'
 sql_user = 'telegram_bot'
 sql_passwd = '123456'
 dbname = 'telegram'
-#father_id = '123990110'
-father_id = '259114535'            # my id, actually, just for debug
+father_id = '123990110'
+#father_id = '259114535'
 bot_id = '248756472'
 """
 Ok, that's it. The rest of file is about sql tables, I'll hopefully handle them myself.
