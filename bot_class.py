@@ -560,15 +560,17 @@ class Bot:
         self.bot.sendMessage(father_id, status[:-1])
 
     def help_request(self, *args):
-        help_text = 'Что можно, а что я ещё не сделал:\n'
+        help_text = 'Что можно:\n'
         help_text += 'show contacts - список людей, которым можно отправить сообщение\n'
         help_text += 'Чтобы ответить на сообщение, reply боту на него.\n'
-        help_text += 'send - отправить одно сообщение\n'
+        help_text += 'введите сообщение, чтобы начать его отправку\n'
         help_text += 'stream - отправлять все сообщения одному человеку\n'
         help_text += 'stop - новые сообщения не будут показываться\n'
         help_text += 'start - новые сообщения будут показываться, не показанные ранее будут показаны сейчас\n' # русский забыл?
-        help_text += 'status - текущее состояние бота\n'
-        help_text += 'пока всё'
+        help_text += '\\status - текущее состояние бота\n'
+        help_text += 'show history - показать историю\n'
+        help_text += 'show message *id* - показать сообщение с id = *id*\n'
+        help_text += '\\reset - вернуть бота в начальное состояние\n'
         self.bot.sendMessage(father_id, help_text)
 
     def dialog_request(self, *args):
@@ -578,7 +580,6 @@ class Bot:
                 self.bot.sendMessage(father_id, 'With... (or cancel)')
                 return
         if len(self.form) == 1:
-            print(1, self.determine)
             if len(self.determine) == 0:
                 name = args[0]['text']
                 if name.lower().split()[0] == "dialog":
@@ -624,7 +625,6 @@ class Bot:
                 table_from = blacklist['table']
             cmd = ("WITH moved_rows AS (DELETE FROM " + table_from 
                     + " WHERE id=%s RETURNING *) INSERT INTO " + table_to + " SELECT * FROM moved_rows")
-            print(cmd)
             self.cur.execute(cmd, (info[0],))
             self.conn.commit()
             self.form = {}
@@ -703,6 +703,10 @@ class Bot:
         self.form = {}
         self.determine = {}
         self.start_request()
+        self.cur.close()
+        self.conn.close()
+        self.conn = psycopg2.connect(database=dbname, user=sql_user, password=sql_passwd, host=sql_host)
+        self.cur = self.conn.cursor()
     
     def history_request(self, msg):
         if 'request' not in self.form:
@@ -759,7 +763,7 @@ class Bot:
             if self.form['mode'] == 'by date':
                 from_date = self.parse_date(msg['text'])
                 if from_date is None:
-                    self.bot.sendMessage(father_id, string + ' is not in the form "YY-MM-DD hh:mm". Try again.')
+                    self.bot.sendMessage(father_id, msg['text'] + ' is not in the form "YY-MM-DD hh:mm". Try again.')
                     return
                 self.form['from_date'] = from_date
                 self.bot.sendMessage(father_id, 'Enter the "to" date in form "YY-MM-DD hh:mm". ' 
@@ -771,7 +775,7 @@ class Bot:
                 else:
                     to_date = self.parse_date(msg['text'])
                     if to_date is None:
-                        self.bot.sendMessage(father_id, string + ' is not in the form "YY-MM-DD hh:mm". Try again.')
+                        self.bot.sendMessage(father_id, msg['text'] + ' is not in the form "YY-MM-DD hh:mm". Try again.')
                         return
                 self.form['to_date'] = to_date
                 args = []
@@ -851,7 +855,7 @@ class Bot:
         try:
             from_date = datetime.strptime(string, f_str)
             if from_date.year == 1900:
-                from_date.replace(year=datetime.now.year)
+                from_date = from_date.replace(year=datetime.now().year)
         except ValueError:
             return
         return from_date
