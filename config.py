@@ -7,9 +7,9 @@ bot_id is id of the bot. There're must be an echo bot to determine father_id and
 """
 token = '322932958:AAHLGXVUPVP_uf1AoACi0MNjSPBXuwxmad8'
 sql_host = 'localhost'
-sql_user = 'tlegram_bot'
+sql_user = 'telegram_bot'
 sql_passwd = '123456'
-dbname = 'tlegram'
+dbname = 'telegram'
 father_id = '123990110'
 bot_id = '322932958'
 """
