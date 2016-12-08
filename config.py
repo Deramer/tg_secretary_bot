@@ -16,8 +16,8 @@ bot_id = '322932958'
 Ok, that's it. The rest of file is about sql tables, I'll hopefully handle them myself.
 You can change tables' names and some of the columns' names and still have hope that bot will work. Though I see no reason for this.
 """
-messages, forwarded, reply, contacts, blacklist, media = {}, {}, {}, {}, {}, {}
-all_tables = [messages, forwarded, reply, contacts, blacklist, media]
+messages, forwarded, reply, contacts, blacklist, media, blocked = {}, {}, {}, {}, {}, {}, {}
+all_tables = [messages, forwarded, reply, contacts, blacklist, media, blocked]
 messages['table'] = 'messages'
 messages['cols'] = ['msg_id', 'from_id', 'date', 'reply_to_msg_id', 'forwarded_id', 'text', 'to_me', 'unread']
 messages['types'] = ['INT UNIQUE', 'INT', 'TIMESTAMP', 'INT', 'INT', 'VARCHAR(2000)', 'BOOLEAN', 'BOOLEAN']
@@ -36,3 +36,6 @@ blacklist['types'] = ['INT UNIQUE', 'VARCHAR(100)', 'VARCHAR(100)', 'VARCHAR(100
 media['table'] = 'media'
 media['cols'] = ['msg_id', 'from_id', 'date', 'reply_to_msg_id', 'forwarded_id', 'type', 'file_id', 'to_me', 'unread']
 media['types'] = ['INT UNIQUE', 'INT', 'TIMESTAMP', 'INT', 'INT', 'INT', 'VARCHAR(120)', 'BOOLEAN', 'BOOLEAN']
+blocked['table'] = 'blocked'
+blocked['cols'] = ['id', 'first_name', 'last_name', 'username']
+blocked['types'] = ['INT PRIMARY KEY', 'VARCHAR(100)', 'VARCHAR(100)', 'VARCHAR(100)']
