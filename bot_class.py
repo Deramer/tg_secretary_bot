@@ -22,13 +22,14 @@ class Bot:
                 'audio': 1,
                 'document': 2,
                 'video': 3,
+                'sticker': 4,
                 'text': 99}
         self.types = {}
         for key in types:
             self.types[key] = types[key]
             self.types[types[key]] = key
         self.media_funcs = {0:self.bot.sendPhoto, 1:self.bot.sendAudio, 2:self.bot.sendDocument, 
-                3:self.bot.sendVideo, 99:self.bot.sendMessage}
+                3:self.bot.sendVideo, 4:self.bot.sendSticker, 99:self.bot.sendMessage}
         self.check_tables()
 
     def run(self):
@@ -43,7 +44,7 @@ class Bot:
         self.cur.execute('SELECT id FROM ' + blacklist['table'] + ' WHERE id=%s', (msg['from']['id'],))
         fall = self.cur.fetchall()
         if fall is not None and len(fall) > 0:
-            self.bot.sendMessage(msg['from']['id'], 'You are not allowed to send messages to that bot.')
+            self.send_msg(msg['from']['id'], 'You are not allowed to send messages to that bot.')
             return
         if ((self.stop['mode'] == 'start' and msg['from']['id'] not in self.stop['exceptions'])
                 or (self.stop['mode'] == 'stop' and msg['from']['id'] in self.stop['exceptions'])):
@@ -54,6 +55,8 @@ class Bot:
         #print(msg)
 
     def parse(self, msg, to_me, to_id=None, unread=False, is_media=False):
+        if msg is None:
+            return None
         if is_media:
            table = media['table']
            cols = media['cols']
@@ -116,8 +119,21 @@ class Bot:
         print(msg)
         self.cur.execute(cmd, args)
         if self.cur.fetchone() is None:
-            if from_str == 'from' and args[0] != int(father_id) and args[0] != int(bot_id):
-                self.confirm_acceptance(msg)
+            self.cur.execute('SELECT * FROM ' + contacts['table'] + ' WHERE id=%s', (args[0],))
+            if self.cur.fetchone() is not None:
+                self.cur.execute('DELETE FROM ' + contacts['table'] + ' WHERE id=%s', (args[0],))
+                self.conn.commit()
+            else:
+                cmd = "SELECT * FROM " + blocked['table'] + " WHERE " + reduce(lambda x,y: x+y+'=%s AND ', 
+                                                                                contacts['cols'], '')[:-5] + ';'
+                self.cur.execute(cmd, args)
+                blocked_res = self.cur.fetchone()
+                if blocked_res is not None:
+                    self.bot.sendMessage(father_id, 'User ' + reduce(lambda x, y: x + ' ' + y, args[1:]) + 'unblocked you')
+                    self.cur.execute('DELETE FROM ' + blocked['table'] + ' WHERE id=%s', (args[0],))
+                    self.conn.commit()
+                elif from_str == 'from' and args[0] != int(father_id) and args[0] != int(bot_id):
+                    self.confirm_acceptance(msg)
             cmd = "INSERT INTO " + contacts['table'] +  ' (' +  reduce(lambda x,y: x+', '+y, contacts['cols']) + ") VALUES (" +  ('%s, '*len(contacts['cols']))[:-2] + ');'
             self.cur.execute(cmd, args)
             self.conn.commit()
@@ -157,7 +173,7 @@ class Bot:
 
     def confirm_acceptance(self, msg):
         thanks = 'Благодарим за обращение, ваше сообщение будет передано представителю ООО "ЗХТО".'
-        self.bot.sendMessage(msg['from']['id'], thanks, reply_to_message_id=msg['message_id']) 
+        self.send_msg(msg['from']['id'], thanks, reply_to_message_id=msg['message_id']) 
 
     def forward(self, msg):
         self.bot.forwardMessage(father_id, msg['from']['id'], msg['message_id'])
@@ -276,8 +292,13 @@ class Bot:
     def show_request(self, msg):
         args = msg['text'].lower().split()[1:]
         if len(args) > 0:
-            if args[0] == 'contacts' or args[0] == 'blacklist':
-                table = contacts['table'] if args[0] == 'contacts' else blacklist['table']
+            if args[0] == 'contacts' or args[0] == 'blacklist' or args[0] == 'blocking':
+                if args[0] == 'contacts':
+                    table = contacts['table']
+                elif args[0] == 'blacklist':
+                    table = blacklist['table']
+                elif args[0] == 'blocking':
+                    table = blocked['table']
                 self.cur.execute('SELECT * FROM ' + table)
                 text = ''
                 for info in self.cur.fetchall():
@@ -317,6 +338,8 @@ class Bot:
                     self.show_message(msg_id)
                     return
                 self.bot.sendMessage(father_id, 'Put a number - message id - after words "show message".')
+            elif args[0] == 'anything':
+                self.bot.sendMessage(father_id, '11.001001000011111101101010100010001000010110100011')
             else:
                 self.bot.sendMessage(father_id, "There's no such show request")
 
@@ -404,7 +427,7 @@ class Bot:
                 print("Can't reply: no source message in 'messages' database")
                 return
         msg_dict = self.msg_list_to_dict(msg_list)
-        sent_msg = self.bot.sendMessage(msg_dict['from_id'], msg['text'], reply_to_message_id=msg_dict['msg_id'])
+        sent_msg = self.send_msg(msg_dict['from_id'], msg['text'], reply_to_message_id=msg_dict['msg_id'])
         self.parse(sent_msg, False, msg_dict['from_id'])
     
     def send_request(self, *args):
@@ -430,7 +453,7 @@ class Bot:
                 self.broadcast(text=args[0]['text'])
                 self.form = {}
                 return
-            sent_msg = self.bot.sendMessage(self.form['user_id'], args[0]['text'])
+            sent_msg = self.send_msg(self.form['user_id'], args[0]['text'])
             self.parse(sent_msg, False, self.form['user_id'])
             self.form = {}
 
@@ -452,8 +475,9 @@ class Bot:
             text = 'Streaming to ' + self.get_full_name_from_info(info) +'\nEnter the text, type "cancel" to stop stream'
             self.bot.sendMessage(father_id, text)
         elif len(self.form) == 2:
-             sent_msg = self.bot.sendMessage(self.form['user_id'], args[0]['text'])
-             self.parse(sent_msg, False, self.form['user_id'])
+             sent_msg = self.send_msg(self.form['user_id'], args[0]['text'])
+             if sent_msg is not None:
+                 self.parse(sent_msg, False, self.form['user_id'])
 
     def stop_request(self, *args):
         if len(args) == 0:
@@ -598,8 +622,9 @@ class Bot:
             self.form['user_id'] = info[0]
             return
         if len(self.form) == 2:
-            sent_msg = self.bot.sendMessage(self.form['user_id'], args[0]['text'])
-            self.parse(sent_msg, False, self.form['user_id'])
+            sent_msg = self.send_msg(self.form['user_id'], args[0]['text'])
+            if sent_msg is not None:
+                self.parse(sent_msg, False, self.form['user_id'])
 
     def blacklist_request(self, msg, to_blacklist=True):
         if len(self.form) == 0:
@@ -643,7 +668,7 @@ class Bot:
                 self.broadcast(text=self.form['text'])
                 self.form = {}
                 return
-            sent_msg = self.bot.sendMessage(info[0], self.form['text'])
+            sent_msg = self.send_msg(info[0], self.form['text'])
             self.parse(sent_msg, False, info[0])
             self.form = {}
 
@@ -695,7 +720,7 @@ class Bot:
             self.broadcast(text=self.form['text'])
             self.form = {}
             return
-        sent_msg = self.bot.sendMessage(info[0], self.form['text'])
+        sent_msg = self.send_msg(info[0], self.form['text'])
         self.parse(sent_msg, False, to_id=info[0])
         self.form = {}
 
@@ -864,9 +889,11 @@ class Bot:
         if text is not None:
             self.cur.execute("SELECT * FROM " + contacts['table'])
             users = self.cur.fetchall()
+            print(users)
             users = [x for x in users if x[0] != int(father_id) and x[0] != int(bot_id)]
             for user in users:
-                sent_msg = self.bot.sendMessage(user[0], text)
+                print(user)
+                sent_msg = self.send_msg(user[0], text)
                 self.parse(sent_msg, False, to_id=user[0])
         if file_type is not None:
             self.cur.execute("SELECT * FROM " + contacts['table'])
@@ -972,6 +999,27 @@ class Bot:
                 if column not in real_cols:
                     self.cur.execute("ALTER TABLE " + table['table'] + " ADD COLUMN " + column + ' ' + table['types'][index] + ';')
                     self.conn.commit()
+
+    def send_msg(self, chat_id, text, parse_mode=None, disable_web_page_preview=None, disable_notification=None, reply_to_message_id=None, reply_markup=None):
+        try:
+            msg = self.bot.sendMessage(chat_id, text, parse_mode, disable_web_page_preview, disable_notification, reply_to_message_id, reply_markup)
+            return msg
+        except telepot.exception.BotWasBlockedError:
+            self.bot.sendMessage(father_id, 'User ' + self.get_full_name_from_id(chat_id) + ' has blocked you.')
+            cmd = 'INSERT INTO ' + blocked['table'] + ' SELECT * FROM ' + contacts['table'] + ' WHERE id=%s'
+            self.cur.execute(cmd, (chat_id,))
+            cmd = 'DELETE FROM ' + contacts['table'] + ' WHERE id=%s'
+            self.cur.execute(cmd, (chat_id,))
+            self.conn.commit()
+            if 'request' in self.form:
+                if self.form['request'] == 'dialog':
+                    self.bot.sendMessage(father_id, 'Closing dialog.')
+                    self.start_request()
+                    self.form = {}
+                elif self.form['request'] == 'stream':
+                    self.bot.sendMessage(father_id, 'Closing stream.')
+                    self.form = {}
+            return None
 
 
     # internal transfroming functions
