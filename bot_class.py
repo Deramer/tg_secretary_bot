@@ -6,6 +6,8 @@ import psycopg2
 
 from datetime import datetime
 from functools import reduce
+import urllib.parse as urlparse
+import os
 
 from config import *
 
@@ -13,7 +15,14 @@ class Bot:
 
     def __init__(self):             # data from config!
         self.bot = telepot.Bot(token)
-        self.conn = psycopg2.connect(database=dbname, user=sql_user, password=sql_passwd, host=sql_host)
+        if heroku:
+            url = urlparse.urlparse(os.environ['DATABASE_URL'])
+            dbname = url.path[1:]
+            sql_user = url.username
+            sql_passwd = url.password
+            sql_host = url.hostname
+            sql_port = url.port
+        self.conn = psycopg2.connect(database=dbname, user=sql_user, password=sql_passwd, host=sql_host, port=sql_port)
         self.cur = self.conn.cursor()
         self.form = {}
         self.stop = {'mode':'start', 'exceptions':[]}

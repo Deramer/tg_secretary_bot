@@ -12,6 +12,9 @@ sql_passwd = '123456'
 dbname = 'telegram'
 father_id = '123990110'
 bot_id = '322932958'
+
+heroku = True
+
 """
 Ok, that's it. The rest of file is about sql tables, I'll hopefully handle them myself.
 You can change tables' names and some of the columns' names and still have hope that bot will work. Though I see no reason for this.
