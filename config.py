@@ -5,7 +5,7 @@ sql_host, sql_user, sql_passwd and dbname are what they seem to be. I won't crea
 father_id is telegram id of human being that will read messages sent to bot and write sage answers.
 bot_id is id of the bot. There're must be an echo bot to determine father_id and bot_id.
 """
-token = '248756472:AAHcRGmbcjkk11H2R_hKMpLLE5DMU47TOEw'
+token = '613785453:AAFPOTCzlGf75ySCGb-Af07-_OoamNd_D2c'
 sql_host = 'localhost'
 sql_user = 'telegram_bot'
 sql_passwd = '123456'
