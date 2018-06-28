@@ -10,8 +10,10 @@ sql_host = 'localhost'
 sql_user = 'telegram_bot'
 sql_passwd = '123456'
 dbname = 'telegram'
-father_id = '259114535'
-bot_id = '322932958'
+#father_id = '259114535'
+#bot_id = '322932958'
+bot_id = '248756472'
+father_id = '241300348'
 
 heroku = True
 
