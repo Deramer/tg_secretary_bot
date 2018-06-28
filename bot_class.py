@@ -181,7 +181,7 @@ class Bot:
         return self.types[cont_type], file_id
 
     def confirm_acceptance(self, msg):
-        thanks = 'Тебя приветствует служба поддержки онлайн-сервиса для обучения скорочтению Скорочтец (http://skorochtec.ru/) (skorochtec.ru). Мы готовы ответить на любые вопросы!'
+        thanks = 'Тебя приветствует служба поддержки онлайн-сервиса для обучения скорочтению Скорочтец (skorochtec.ru). Мы готовы ответить на любые вопросы!'
         self.send_msg(msg['from']['id'], thanks, reply_to_message_id=msg['message_id']) 
 
     def forward(self, msg):
