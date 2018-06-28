@@ -12,7 +12,7 @@ sql_passwd = '123456'
 dbname = 'telegram'
 #father_id = '259114535'
 #bot_id = '322932958'
-bot_id = '248756472'
+bot_id = '613785453'
 father_id = '241300348'
 
 heroku = True
